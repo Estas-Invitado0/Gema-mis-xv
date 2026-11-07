@@ -1,0 +1,24 @@
+CONFIGURAR LA PLAYLIST DE GEMA
+
+1. Abrí la hoja de cálculo:
+   https://docs.google.com/spreadsheets/d/1mQpPKhT7xOFCOXHWlmkdCFbeFH1accwwzfGMDfLU5RQ/edit
+
+2. En la hoja, abrí Extensiones > Apps Script. Copiá el contenido de
+   playlist-backend.gs en el editor y guardá el proyecto.
+
+3. En el selector de funciones, elegí setupPlaylistSheet y presioná Ejecutar.
+   Aceptá los permisos. Se creará la pestaña "Playlist" con los encabezados
+   "Fecha y hora" y "Canción".
+
+4. Elegí Implementar > Nueva implementación > Aplicación web. Configurá:
+   - Ejecutar como: Yo
+   - Quién tiene acceso: Cualquier persona
+   Implementá y copiá la URL que termina en /exec.
+
+5. Pegá esa URL en PLAYLIST_API_URL en ambos archivos:
+   - index.html
+   - playlist.html
+
+Si ya existe una implementación, abrí Implementar > Administrar las
+implementaciones, editá la aplicación web y seleccioná una versión nueva para
+publicar cambios. La URL /exec debería mantenerse igual.

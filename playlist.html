@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#010125">
+  <title>Playlist de Gema · Mis 15</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      color-scheme:dark;
+      --navy:#010125;
+      --navy-light:#122c67;
+      --amber:#d5823c;
+      --light-amber:#e08c46;
+      --rust:#9b2e05;
+      --ink:#f5e8c9;
+      --muted:#d5a071;
+    }
+    *{box-sizing:border-box;}
+    body{
+      min-height:100vh;
+      margin:0;
+      padding:28px 16px;
+      color:var(--ink);
+      font-family:'Montserrat',sans-serif;
+      background:
+        radial-gradient(ellipse at 50% 0%,rgba(18,44,103,.42),transparent 42rem),
+        linear-gradient(180deg,var(--navy),#06063c 52%,var(--navy));
+    }
+    main{
+      width:min(100%,560px);
+      margin:0 auto;
+      padding:24px 20px 30px;
+      border:1px solid rgba(213,130,60,.26);
+      background:rgba(1,1,37,.24);
+      text-align:center;
+    }
+    h1{
+      margin:0;
+      color:var(--light-amber);
+      font:600 clamp(25px,7vw,34px) 'Cinzel',serif;
+      letter-spacing:.06em;
+    }
+    .subtitle{margin:10px 0 24px;color:var(--muted);font-size:14px;line-height:1.6;}
+    .playlist{
+      display:grid;
+      gap:9px;
+      margin:0;
+      padding:0;
+      list-style:none;
+      text-align:left;
+    }
+    .song{
+      display:grid;
+      grid-template-columns:38px minmax(0,1fr);
+      align-items:center;
+      gap:12px;
+      min-height:60px;
+      padding:10px 13px;
+      border:1px solid rgba(213,130,60,.24);
+      border-left:3px solid var(--amber);
+      background:linear-gradient(100deg,rgba(18,44,103,.45),rgba(1,1,37,.42));
+    }
+    .song-number{
+      color:var(--light-amber);
+      font:600 16px 'Cinzel',serif;
+      text-align:center;
+    }
+    .song-title{overflow-wrap:anywhere;font-size:15px;line-height:1.45;}
+    .empty,.status{color:var(--muted);font-size:14px;line-height:1.6;}
+    .empty{padding:22px 10px;}
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:10px;
+      margin-top:22px;
+    }
+    .action-button{
+      min-height:44px;
+      padding:10px 18px;
+      border:1px solid rgba(224,140,70,.78);
+      border-radius:5px;
+      font:600 14px 'Montserrat',sans-serif;
+      cursor:pointer;
+    }
+    .refresh{
+      color:var(--navy);
+      background:linear-gradient(135deg,var(--light-amber),var(--amber),var(--rust));
+    }
+    .download{
+      color:var(--light-amber);
+      background:rgba(18,44,103,.5);
+    }
+    .action-button:focus-visible{outline:2px solid var(--light-amber);outline-offset:4px;}
+    .action-button:disabled{cursor:wait;opacity:.7;}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Playlist de Gema</h1>
+    <p class="subtitle">Las canciones que recomendaron para celebrar mis 15</p>
+    <p class="status" id="playlist-status" role="status" aria-live="polite">Cargando canciones...</p>
+    <ol class="playlist" id="playlist" aria-label="Canciones recomendadas"></ol>
+    <div class="actions">
+      <button class="action-button refresh" id="refresh-playlist" type="button">ACTUALIZAR LISTA</button>
+      <button class="action-button download" id="download-playlist" type="button">DESCARGAR LISTA (.CSV)</button>
+    </div>
+  </main>
+  <script>
+    const PLAYLIST_API_URL = "https://script.google.com/macros/s/AKfycbzPGpdFCmLE4sVN4EXNg2CmmntTu5UJyZ2auvzhWHZ-oc5155cWnYFxRPD_Yy6sY3GbzQ/exec";
+    const playlist = document.getElementById("playlist");
+    const status = document.getElementById("playlist-status");
+    let requestId = 0;
+
+    function fetchSongs() {
+      return new Promise((resolve, reject) => {
+        const callbackName = `playlistCallback${Date.now()}${Math.floor(Math.random() * 10000)}`;
+        const script = document.createElement("script");
+        const timeout = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("La carga de la playlist superó el tiempo de espera."));
+        }, 12000);
+
+        function cleanup() {
+          window.clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
+
+        window[callbackName] = (result) => {
+          cleanup();
+          if (!result || !Array.isArray(result.songs)) {
+            reject(new Error("La respuesta de la playlist no tiene un formato válido."));
+            return;
+          }
+          resolve(result.songs);
+        };
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("No se pudo acceder a la playlist."));
+        };
+        script.src = `${PLAYLIST_API_URL}?action=songs&callback=${callbackName}&t=${Date.now()}`;
+        document.head.appendChild(script);
+      });
+    }
+
+    async function loadPlaylist() {
+      const currentRequest = ++requestId;
+      status.textContent = "Cargando canciones...";
+      playlist.replaceChildren();
+
+      if (!PLAYLIST_API_URL.startsWith("https://script.google.com/macros/s/")) {
+        status.textContent = "La playlist todavía no está conectada.";
+        return;
+      }
+
+      try {
+        const songs = await fetchSongs();
+        if (currentRequest !== requestId) return;
+
+        if (songs.length === 0) {
+          status.textContent = "Todavía no hay canciones recomendadas.";
+          return;
+        }
+
+        songs.forEach((entry, index) => {
+          const item = document.createElement("li");
+          item.className = "song";
+          const number = document.createElement("span");
+          number.className = "song-number";
+          number.textContent = String(index + 1).padStart(2, "0");
+          const title = document.createElement("span");
+          title.className = "song-title";
+          title.textContent = String(entry.song || "");
+          item.append(number, title);
+          playlist.appendChild(item);
+        });
+        status.textContent = `${songs.length} ${songs.length === 1 ? "canción recomendada" : "canciones recomendadas"}`;
+      } catch (error) {
+        if (currentRequest !== requestId) return;
+        status.textContent = "No se pudo cargar la playlist. Probá actualizar la lista.";
+        console.error("No se pudo cargar la playlist.", error);
+      }
+    }
+
+    function csvCell(value) {
+      let text = String(value ?? "");
+      if (/^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    async function downloadPlaylist() {
+      const button = document.getElementById("download-playlist");
+      button.disabled = true;
+      const originalLabel = button.textContent;
+      button.textContent = "PREPARANDO ARCHIVO...";
+
+      try {
+        const songs = await fetchSongs();
+        const rows = [["Fecha y hora", "Canción"], ...songs.map((entry) => [
+          entry.date || "",
+          entry.song || ""
+        ])];
+        const csv = "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+        const file = new Blob([csv], {type: "text/csv;charset=utf-8"});
+        const url = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `playlist-gema-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        status.textContent = "No se pudo descargar la playlist. Probá actualizar e intentá de nuevo.";
+        console.error("No se pudo descargar la playlist.", error);
+      } finally {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
+    }
+
+    document.getElementById("refresh-playlist").addEventListener("click", loadPlaylist);
+    document.getElementById("download-playlist").addEventListener("click", downloadPlaylist);
+    loadPlaylist();
+  </script>
+</body>
+</html>
